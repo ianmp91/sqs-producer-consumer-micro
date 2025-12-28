@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -48,11 +49,10 @@ public class MessageProducerService {
         request.setVersion(new BigDecimal("21.3"));
         request.setTransactionIdentifier("t1");
         request.setSequenceNmbr(new BigInteger("1"));
-
+        request.setCorrelationID("t1");
         IATAAIDXFlightLegRQ.Airline airline = new IATAAIDXFlightLegRQ.Airline();
         airline.setCode("QR");
-        airline.setCodeContext("IATA");
-
+        airline.setCodeContext("1234");
         request.setAirline(airline);
 
         String xmlPayload = xmlService.toXml(request);
@@ -61,13 +61,21 @@ public class MessageProducerService {
 
         EncryptDecryptMessageUtil.EncryptedMessageBundle encryptedMessageBundle = encryptDecryptMessageUtil.encryptHybrid(xmlPayload);
 
+        Map<String, String> requestMetadata = new HashMap<>();
+        requestMetadata.put("MESSAGE_TYPE", "IATAAIDXFlightLegRQ"); // Tipo de respuesta
+        requestMetadata.put("correlation_id", "1234567890"); // Mantener trazabilidad
+        requestMetadata.put("keyPublic", encryptDecryptMessageUtil.getPublicKeyAsString()); //
+
+        log.debug("Before preparing the SQS shipment. Metadata: {}", requestMetadata);
+
         MessageDto message = new MessageDto(
-                Map.of("keyPublic", encryptDecryptMessageUtil.getPublicKeyAsString()),
+                requestMetadata,
                 encryptedMessageBundle.encryptedPayload(),
                 encryptedMessageBundle.encryptedKey()
         );
 
         log.info("Preparing the SQS shipment.  EncryptedPayload: {}", encryptedMessageBundle.encryptedPayload());
+        log.info("Preparing the SQS shipment.  EncryptedKey: {}", encryptedMessageBundle.encryptedKey());
 
         sqsProducerService.send(colaAwsSqsProducer, message);
 

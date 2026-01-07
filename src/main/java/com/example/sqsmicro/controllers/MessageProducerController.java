@@ -44,4 +44,15 @@ public class MessageProducerController {
         messageProducerService.sendFlightLegRequest();
         return "Encrypted message sent to SQS Queue 1.";
     }
+
+    @PostMapping("/send/notification")
+    @Operation(
+            summary = "Send encrypted message to SQS-1",
+            description = "Create & encrypts the payload with a public key, and sends it to the aws-sqs-1 queue."
+    )
+    @ApiResponse(responseCode = "200", description = "Message successfully sent to queue")
+    public String handleSendFlightLegNotifRequestMessage() throws Exception {
+        messageProducerService.sendFlightLegNotifRequest();
+        return "Encrypted message sent to SQS Queue 1.";
+    }
 }

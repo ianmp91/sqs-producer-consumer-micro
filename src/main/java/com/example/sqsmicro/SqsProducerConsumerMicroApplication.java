@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 		"com.example.sqsmicro", // Tu paquete actual
 		"com.example.sqslib"          // 🚨 El paquete donde está SqsLibraryProducer (debes usar el nombre real)
 })
+@EnableScheduling
 public class SqsProducerConsumerMicroApplication {
 
 	public static void main(String[] args) {

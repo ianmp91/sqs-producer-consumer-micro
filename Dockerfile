@@ -15,6 +15,9 @@ COPY build/resources/main/public_key_c.pem src/main/resources/public_key_c.pem
 # Copiamos el private key
 COPY build/resources/main/private_key_b.pem src/main/resources/private_key_b.pem
 
+# Copiamos el private key
+COPY build/resources/main/payloads.txt src/main/resources/payloads.txt
+
 # Variables de entorno por defecto
 ENV SPRING_PROFILES_ACTIVE=docker
 

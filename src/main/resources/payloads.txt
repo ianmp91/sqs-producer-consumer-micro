@@ -1,0 +1,1 @@
+<IATA_AIDX_FlightLegRQ EchoToken="3c247f28-c898-4ae2-b6a6-700848f0dc4e" TimeStamp="2025-12-28T13:58:42.216042" Target="test" Version="21.3" TransactionIdentifier="t1" SequenceNmbr="1" CorrelationID="t1" xmlns="http://www.iata.org/IATA/2007/00" xmlns:ns2="http://www.w3.org/2000/09/xmldsig#"><Airline Code="QR" CodeContext="1234"/></IATA_AIDX_FlightLegRQ>

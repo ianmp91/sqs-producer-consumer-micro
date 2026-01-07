@@ -1,5 +1,6 @@
 package com.example.sqsmicro.services;
 
+import com.example.sqslib.iata.IATAAIDXFlightLegNotifRQ;
 import com.example.sqslib.iata.IATAAIDXFlightLegRQ;
 import com.example.sqslib.service.XmlService;
 import com.example.sqsmicro.records.MessageDto;
@@ -29,16 +30,40 @@ public class MessageProducerService {
     private final EncryptDecryptMessageUtil encryptDecryptMessageUtil;
     private final String colaAwsSqsProducer;
     private final XmlService xmlService;
+    private final FlightNotificationBuilder flightNotificationBuilder;
+
 
     public MessageProducerService(
             @Value("${cola.aws.sqs.producer}") String colaAwsSqsProducer,
             SqsProducerService sqsProducerService,
             EncryptDecryptMessageUtil encryptDecryptMessageUtil,
-            XmlService xmlService) {
+            XmlService xmlService,
+            FlightNotificationBuilder flightNotificationBuilder) {
         this.colaAwsSqsProducer = colaAwsSqsProducer;
         this.sqsProducerService = sqsProducerService;
         this.encryptDecryptMessageUtil = encryptDecryptMessageUtil;
         this.xmlService = xmlService;
+        this.flightNotificationBuilder = flightNotificationBuilder;
+    }
+
+    public void sendFlightLegNotifRequest() throws Exception {
+        IATAAIDXFlightLegNotifRQ request = flightNotificationBuilder.buildNotif("QR", "1234");
+        String xmlPayload = xmlService.toXml(request);
+        log.debug("Before preparing the SQS shipment. Payload to encrypt: {}", xmlPayload);
+        EncryptDecryptMessageUtil.EncryptedMessageBundle encryptedMessageBundle = encryptDecryptMessageUtil.encryptHybrid(xmlPayload);
+        Map<String, String> requestMetadata = new HashMap<>();
+        requestMetadata.put("message_type", "IATAAIDXFlightLegNotifRQ"); // Tipo de respuesta
+        requestMetadata.put("correlation_id", "1234567890"); // Mantener trazabilidad
+        requestMetadata.put("key_public", encryptDecryptMessageUtil.getPublicKeyAsString()); //
+        log.debug("Before preparing the SQS shipment. Metadata: {}", requestMetadata);
+        MessageDto message = new MessageDto(
+                requestMetadata,
+                encryptedMessageBundle.encryptedPayload(),
+                encryptedMessageBundle.encryptedKey()
+        );
+        log.info("Preparing the SQS shipment.  EncryptedPayload: {}", encryptedMessageBundle.encryptedPayload());
+        log.info("Preparing the SQS shipment.  EncryptedKey: {}", encryptedMessageBundle.encryptedKey());
+        sqsProducerService.send(colaAwsSqsProducer, message);
     }
 
     public void sendFlightLegRequest() throws Exception {
@@ -56,37 +81,28 @@ public class MessageProducerService {
         airline.setCode("QR");
         airline.setCodeContext("1234");
         request.setAirline(airline);
-
         String xmlPayload = xmlService.toXml(request);
-
         log.debug("Before preparing the SQS shipment. Payload to encrypt: {}", xmlPayload);
-
         EncryptDecryptMessageUtil.EncryptedMessageBundle encryptedMessageBundle = encryptDecryptMessageUtil.encryptHybrid(xmlPayload);
-
         Map<String, String> requestMetadata = new HashMap<>();
-        requestMetadata.put("MESSAGE_TYPE", "IATAAIDXFlightLegRQ"); // Tipo de respuesta
+        requestMetadata.put("message_type", "IATAAIDXFlightLegRQ"); // Tipo de respuesta
         requestMetadata.put("correlation_id", "1234567890"); // Mantener trazabilidad
-        requestMetadata.put("keyPublic", encryptDecryptMessageUtil.getPublicKeyAsString()); //
-
+        requestMetadata.put("key_public", encryptDecryptMessageUtil.getPublicKeyAsString()); //
         log.debug("Before preparing the SQS shipment. Metadata: {}", requestMetadata);
-
         MessageDto message = new MessageDto(
                 requestMetadata,
                 encryptedMessageBundle.encryptedPayload(),
                 encryptedMessageBundle.encryptedKey()
         );
-
         log.info("Preparing the SQS shipment.  EncryptedPayload: {}", encryptedMessageBundle.encryptedPayload());
         log.info("Preparing the SQS shipment.  EncryptedKey: {}", encryptedMessageBundle.encryptedKey());
-
         sqsProducerService.send(colaAwsSqsProducer, message);
-
     }
 
     public void sendMessage(String payload, Map<String, String> metadata) throws Exception {
         log.debug("Before preparing the SQS shipment. Payload to encrypt: {}", payload);
         EncryptDecryptMessageUtil.EncryptedMessageBundle encryptedMessageBundle = encryptDecryptMessageUtil.encryptHybrid(payload);
-        metadata.put("keyPublic", encryptDecryptMessageUtil.getPublicKeyAsString());
+        metadata.put("key_public", encryptDecryptMessageUtil.getPublicKeyAsString());
         MessageDto message = new MessageDto(
                 metadata,
                 encryptedMessageBundle.encryptedPayload(),

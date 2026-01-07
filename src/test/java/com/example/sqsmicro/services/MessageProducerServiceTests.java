@@ -31,6 +31,9 @@ public class MessageProducerServiceTests {
     private EncryptDecryptMessageUtil encryptDecryptMessageUtil;
 
     @Mock
+    private FlightNotificationBuilder flightNotificationBuilder;
+
+    @Mock
         private XmlService xmlService; // Mock de encriptación
 
     private MessageProducerService messageProducerService; // Servicio (B) bajo test
@@ -50,7 +53,8 @@ public class MessageProducerServiceTests {
                 "cola-aws-sqs-1",
                 sqsProducerLib,
                 encryptDecryptMessageUtil,
-                xmlService
+                xmlService,
+                flightNotificationBuilder
         );
         // WHEN
         messageProducerService.sendMessage(rawPayload, metadata);

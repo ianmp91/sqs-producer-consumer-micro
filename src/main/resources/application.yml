@@ -31,4 +31,4 @@ springdoc:
     enabled: true
     operations-sorter: method
 scheduler:
-  cron-expression: "0 */5 * * * *" # Cada 5 minutos
+  cron-expression: "0 */2 * * * *" # Cada 2 minutos

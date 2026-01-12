@@ -45,7 +45,7 @@ public class SchedulerService {
 		}
 	}
 
-	@Scheduled(cron = "${scheduler.cron-expression:0 */5 * * * *}")
+	@Scheduled(cron = "${scheduler.cron-expression:0 */2 * * * *}")
 	public void sendAutomatedMessage() {
 		if (loadedMessages == null || loadedMessages.isEmpty()) {
 			log.warn("There are no messages to send...");

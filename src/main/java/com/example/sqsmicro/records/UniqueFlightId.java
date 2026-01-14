@@ -51,7 +51,7 @@ public record UniqueFlightId(
 	}
 
 	/**
-	 * Genera el ID único en formato String para usar como 'keyId' en MessageDto
+	 * Genera el ID único en formato String para usar como 'encryptedKey' en MessageDto
 	 * o 'MessageGroupId' en AWS SQS FIFO.
 	 * Formato: AIRLINE-FLIGHTNUM-DATE-DEP-ARR[-SUFFIX][-REPEAT]
 	 */

@@ -2,6 +2,7 @@ package com.example.sqsmicro.services;
 
 import com.example.sqslib.producer.SqsProducerService;
 import com.example.sqslib.service.XmlService;
+import com.example.sqsmicro.builders.FlightNotificationBuilder;
 import com.example.sqsmicro.records.MessageDto;
 import com.example.sqsmicro.util.EncryptDecryptMessageUtil;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,9 @@ import static org.mockito.Mockito.when;
 public class MessageProducerServiceTests {
 
     @Mock
+    private ExternalConfigService externalConfigService;
+
+    @Mock
     private SqsProducerService sqsProducerLib; // Mock de tu Libreria (A)
 
     @Mock
@@ -45,16 +49,17 @@ public class MessageProducerServiceTests {
         Map<String,String> metadata = new HashMap<>();
         String publicKey = "key-public-123";
         metadata.put("publicKey", publicKey);
+        when(externalConfigService.getQueueUrl()).thenReturn("cola-aws-sqs-1");
         // 1. Stub to encrypt the payload (your service now returns String)
         when(encryptDecryptMessageUtil.encryptHybrid(eq(rawPayload)))
                 .thenReturn(new EncryptDecryptMessageUtil.EncryptedMessageBundle(rawPayload, publicKey));
         // The safest and cleanest way is to instantiate it:
         messageProducerService = new MessageProducerService(
-                "cola-aws-sqs-1",
                 sqsProducerLib,
                 encryptDecryptMessageUtil,
                 xmlService,
-                flightNotificationBuilder
+                flightNotificationBuilder,
+                externalConfigService
         );
         // WHEN
         messageProducerService.sendMessage(rawPayload, metadata);

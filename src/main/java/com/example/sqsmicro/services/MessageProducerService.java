@@ -3,6 +3,7 @@ package com.example.sqsmicro.services;
 import com.example.sqslib.iata.IATAAIDXFlightLegNotifRQ;
 import com.example.sqslib.iata.IATAAIDXFlightLegRQ;
 import com.example.sqslib.service.XmlService;
+import com.example.sqsmicro.builders.FlightNotificationBuilder;
 import com.example.sqsmicro.records.MessageDto;
 import com.example.sqslib.producer.SqsProducerService;
 import com.example.sqsmicro.records.UniqueFlightId;
@@ -31,29 +32,33 @@ public class MessageProducerService {
 
     private final SqsProducerService sqsProducerService;
     private final EncryptDecryptMessageUtil encryptDecryptMessageUtil;
-    private final String colaAwsSqsProducer;
     private final XmlService xmlService;
     private final FlightNotificationBuilder flightNotificationBuilder;
+    private final ExternalConfigService externalConfigService;
 
 
     public MessageProducerService(
-            @Value("${cola.aws.sqs.producer}") String colaAwsSqsProducer,
             SqsProducerService sqsProducerService,
             EncryptDecryptMessageUtil encryptDecryptMessageUtil,
             XmlService xmlService,
-            FlightNotificationBuilder flightNotificationBuilder) {
-        this.colaAwsSqsProducer = colaAwsSqsProducer;
+            FlightNotificationBuilder flightNotificationBuilder,
+            ExternalConfigService externalConfigService) {
         this.sqsProducerService = sqsProducerService;
         this.encryptDecryptMessageUtil = encryptDecryptMessageUtil;
         this.xmlService = xmlService;
         this.flightNotificationBuilder = flightNotificationBuilder;
+        this.externalConfigService = externalConfigService;
     }
 
     public void sendFlightLegNotifRequest() throws Exception {
+        String targetQueue = externalConfigService.getQueueUrl();
+        String receiverPubKey = externalConfigService.getAirportPublicKey();
+        log.debug("Before preparing the SQS shipment. TargetQueue {} | ReceiverPubKey {}", targetQueue, receiverPubKey);
         IATAAIDXFlightLegNotifRQ request = flightNotificationBuilder.buildNotif("QR", "1234");
         String xmlPayload = xmlService.toXml(request);
         UniqueFlightId uniqueFlightId = new UniqueFlightId(request.getFlightLegs().getFirst().getLegIdentifier().getAirline().getValue(), request.getFlightLegs().getFirst().getLegIdentifier().getFlightNumber(), request.getTimeStamp().toLocalDate(), request.getFlightLegs().getFirst().getLegIdentifier().getDepartureAirport().getValue(), request.getFlightLegs().getFirst().getLegIdentifier().getArrivalAirport().getValue(), Optional.empty(), Optional.empty());
         log.debug("Before preparing the SQS shipment. Payload to encrypt: {}", xmlPayload);
+        encryptDecryptMessageUtil.loadPublicKey(receiverPubKey);
         EncryptDecryptMessageUtil.EncryptedMessageBundle encryptedMessageBundle = encryptDecryptMessageUtil.encryptHybrid(xmlPayload);
         Map<String, String> requestMetadata = new HashMap<>();
         requestMetadata.put("message_type", "IATAAIDXFlightLegNotifRQ");
@@ -67,12 +72,15 @@ public class MessageProducerService {
                 uniqueFlightId.toKeyId()
         );
         log.info("Preparing the SQS shipment. Metadata: {} | EncryptedPayload: {}", requestMetadata.toString(), encryptedMessageBundle.encryptedPayload());
-        log.info("Preparing the SQS shipment. EncryptedKey: {}", message.keyId());
+        log.info("Preparing the SQS shipment. EncryptedKey: {}", message.encryptedKey());
         log.info("Preparing the SQS shipment. UniqueFlightId: {}", message.uniqueFlightId());
-        sqsProducerService.send(colaAwsSqsProducer, message);
+        sqsProducerService.send(targetQueue, message);
     }
 
     public void sendFlightLegRequest() throws Exception {
+        String targetQueue = externalConfigService.getQueueUrl();
+        String receiverPubKey = externalConfigService.getAirportPublicKey();
+        log.debug("Before preparing the SQS shipment. TargetQueue {} | ReceiverPubKey {}", targetQueue, receiverPubKey);
         IATAAIDXFlightLegRQ request = new IATAAIDXFlightLegRQ();
         request.setEchoToken(UUID.randomUUID().toString());
         request.setTimeStamp(LocalDateTime.now());
@@ -89,6 +97,7 @@ public class MessageProducerService {
         request.setAirline(airline);
         String xmlPayload = xmlService.toXml(request);
         log.debug("Before preparing the SQS shipment. Payload to encrypt: {}", xmlPayload);
+        encryptDecryptMessageUtil.loadPublicKey(receiverPubKey);
         EncryptDecryptMessageUtil.EncryptedMessageBundle encryptedMessageBundle = encryptDecryptMessageUtil.encryptHybrid(xmlPayload);
         Map<String, String> requestMetadata = new HashMap<>();
         requestMetadata.put("message_type", "IATAAIDXFlightLegRQ");
@@ -103,13 +112,17 @@ public class MessageProducerService {
                 uniqueFlightId.toKeyId()
         );
         log.info("Preparing the SQS shipment. Metadata: {} | EncryptedPayload: {}", requestMetadata.toString(), encryptedMessageBundle.encryptedPayload());
-        log.info("Preparing the SQS shipment. EncryptedKey: {}", message.keyId());
+        log.info("Preparing the SQS shipment. EncryptedKey: {}", message.encryptedKey());
         log.info("Preparing the SQS shipment. UniqueFlightId: {}", message.uniqueFlightId());
-        sqsProducerService.send(colaAwsSqsProducer, message);
+        sqsProducerService.send(targetQueue, message);
     }
 
     public void sendMessage(String payload, Map<String, String> metadata) throws Exception {
+        String targetQueue = externalConfigService.getQueueUrl();
+        String receiverPubKey = externalConfigService.getAirportPublicKey();
+        log.debug("Before preparing the SQS shipment. TargetQueue {} | ReceiverPubKey {}", targetQueue, receiverPubKey);
         log.debug("Before preparing the SQS shipment. Payload to encrypt: {}", payload);
+        encryptDecryptMessageUtil.loadPublicKey(receiverPubKey);
         EncryptDecryptMessageUtil.EncryptedMessageBundle encryptedMessageBundle = encryptDecryptMessageUtil.encryptHybrid(payload);
         metadata.put("message_type", metadata.get("message_type"));
         metadata.put("correlation_id", metadata.get("correlation_id"));
@@ -122,8 +135,8 @@ public class MessageProducerService {
                 uniqueFlightId.toKeyId()
         );
         log.info("Preparing the SQS shipment. Metadata: {} | EncryptedPayload: {}", metadata.toString(), encryptedMessageBundle.encryptedPayload());
-        log.info("Preparing the SQS shipment. EncryptedKey: {}", message.keyId());
+        log.info("Preparing the SQS shipment. EncryptedKey: {}", message.encryptedKey());
         log.info("Preparing the SQS shipment. UniqueFlightId: {}", message.uniqueFlightId());
-        sqsProducerService.send(colaAwsSqsProducer, message);
+        sqsProducerService.send(targetQueue, message);
     }
 }

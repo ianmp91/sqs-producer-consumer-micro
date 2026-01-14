@@ -7,8 +7,8 @@ import java.util.Map;
  * @since 2025-12-15
  */
 public record MessageDto(
-        Map<String, String> metadata, // Timestamp, TraceId, Sender, etc.
-        String encryptedPayload,      // El contenido cifrado en Base64
-        String keyId, // Opcional: Para saber qué clave se usó
+		Map<String, String> metadata, // Timestamp, TraceId, Sender, etc.
+		String encryptedPayload,      // El contenido cifrado en Base64
+		String encryptedKey, // Opcional: Para saber qué clave se usó
 		String uniqueFlightId
 ) {}

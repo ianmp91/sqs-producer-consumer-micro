@@ -4,7 +4,7 @@ logging:
     com.example.sqsmicro: DEBUG
 spring:
   application:
-    name: sqs-producer-consumer-micro
+    name: airlines-b
   main:
     allow-bean-definition-overriding: true
   cloud:
@@ -16,11 +16,6 @@ spring:
       credentials:
         access-key: dummy
         secret-key: dummy
-cola:
-  aws:
-    sqs:
-      producer: "cola-aws-sqs-1"
-      consumer: "cola-aws-sqs-2"
 springdoc:
   api-docs:
     path: /v1/api-docs

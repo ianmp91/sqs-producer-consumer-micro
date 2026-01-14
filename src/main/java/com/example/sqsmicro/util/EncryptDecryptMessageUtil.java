@@ -19,11 +19,14 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.io.StringReader;
 import java.security.InvalidKeyException;
+import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 /**
@@ -37,13 +40,59 @@ public class EncryptDecryptMessageUtil {
     private PublicKey publicKey;
 
     public EncryptDecryptMessageUtil(
-            @Value("classpath:private_key_b.pem") Resource resourcePrivateKey,
-            @Value("classpath:public_key_c.pem") Resource resourcePublicKey) throws Exception{
-        if (!resourcePublicKey.exists() && !resourcePublicKey.exists()) {
-            throw new RuntimeException("FATAL ERROR: private & public KEY not found in src/main/resource");
+            @Value("classpath:private_key_b.pem") Resource resourcePrivateKey) throws Exception{
+        if (!resourcePrivateKey.exists()) {
+            throw new RuntimeException("FATAL ERROR: private KEY not found in src/main/resource");
         }
-        loadPublicKey(resourcePublicKey);
         loadPrivateKey(resourcePrivateKey);
+    }
+
+    public void loadPublicKey(String publicKeyContent) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
+        // 1. Limpieza preventiva: A veces el Config Server mete saltos de linea o espacios
+        String cleanedKey = publicKeyContent
+                .replace("\n", "")
+                .replace("\r", "")
+                .trim();
+
+        // 2. DETECCIÓN: ¿Es formato PEM (con cabeceras) o Raw Base64?
+        if (cleanedKey.startsWith("-----BEGIN")) {
+            // Es PEM, usamos tu lógica de Bouncy Castle pero mejorada
+            loadPublicKeyFromPem(publicKeyContent);
+        } else {
+            // 3. Es Raw Base64 (lo que tienes en tu YAML) -> Usamos Java Nativo
+            byte[] keyBytes = Base64.getDecoder().decode(cleanedKey);
+            X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            this.publicKey = keyFactory.generatePublic(spec);
+        }
+    }
+
+    // Extraemos tu lógica anterior a un método privado para mantener el código limpio
+    private void loadPublicKeyFromPem(String pemContent) throws IOException {
+        try (Reader reader = new StringReader(pemContent);
+             PEMParser pemParser = new PEMParser(reader)) {
+
+            Object object = pemParser.readObject();
+            JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
+
+            if (object instanceof SubjectPublicKeyInfo) {
+                // PKCS#8 (El estándar moderno)
+                this.publicKey = converter.getPublicKey((SubjectPublicKeyInfo) object);
+            } else if (object instanceof PEMKeyPair) {
+                // Si por error pasaron un par de claves
+                this.publicKey = converter.getKeyPair((PEMKeyPair) object).getPublic();
+            } else if (object instanceof org.bouncycastle.asn1.pkcs.RSAPublicKey) {
+                // CASO FALTANTE: PKCS#1 (-----BEGIN RSA PUBLIC KEY-----)
+                // Bouncy Castle a veces devuelve esto directamente
+                // Necesitamos convertirlo a SubjectPublicKeyInfo o procesarlo manualmente,
+                // pero usualmente converter lo maneja si el objeto es correcto.
+                // Para simplificar, si usas claves modernas, caerá en SubjectPublicKeyInfo.
+                throw new RuntimeException("Format PKCS#1 detected but not implemented in this snippet.");
+            } else {
+                // Aquí es donde caía tu error antes porque 'object' era null o irreconocible sin cabeceras
+                throw new RuntimeException("Formato de Public Key no reconocido o null. Objeto detectado: " + (object != null ? object.getClass().getName() : "null"));
+            }
+        }
     }
 
     private void loadPrivateKey(Resource resource) throws Exception {
@@ -57,21 +106,6 @@ public class EncryptDecryptMessageUtil {
                 this.privateKey = converter.getPrivateKey((PrivateKeyInfo) object);
             } else {
                 throw new RuntimeException("The private_key_b.pem file does not have a supported format (expected PKCS#1 or PKCS#8)");
-            }
-        }
-    }
-
-    private void loadPublicKey(Resource resource) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
-        try (Reader reader = new InputStreamReader(resource.getInputStream());
-             PEMParser pemParser = new PEMParser(reader)) {
-            Object object = pemParser.readObject();
-            JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
-            if (object instanceof PEMKeyPair) {
-                this.publicKey = converter.getKeyPair((PEMKeyPair) object).getPublic();
-            } else if (object instanceof SubjectPublicKeyInfo) {
-                this.publicKey = converter.getPublicKey((SubjectPublicKeyInfo) object);
-            } else {
-                throw new RuntimeException("The public_key_c.pem file does not have a supported format (expected PKCS#1 or PKCS#8)");
             }
         }
     }

@@ -1,15 +1,13 @@
-package com.example.sqsmicro.services;
+package com.example.sqsmicro.builders;
 
 import com.example.sqslib.iata.*;
 import jakarta.xml.bind.JAXBElement;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
 import javax.xml.namespace.QName;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Component
 public class FlightNotificationBuilder {

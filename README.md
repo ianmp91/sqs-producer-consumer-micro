@@ -1,79 +1,86 @@
-# Producer/Consumer Microservice (B)
+# Airlines-B Microservice (Producer/Consumer)
 
-This service is the flow initiator. It is responsible for generating messages with encrypted payload to `cola-aws-sqs-1` and listening for processed responses on `cola-aws-sqs-2`.
+This project is a **Java 25** microservice built with **Spring Boot 4** and **Gradle (Groovy)**. It acts as a bidirectional messaging component within the distributed system, utilizing **AWS SQS** for asynchronous communication.
 
-## 🔄 Messaging Flow
+## 🚀 Tech Stack
 
-1. **Produce (Encryption):** Creates a message with metadata and `rawPayload`.
-    * **Security:** The `rawPayload` is **ENCRYPTED** using a **Public Key (RSA)** before being sent.
-    * **Destination:** `cola-aws-sqs-1`.
+* **Language:** Java 25
+* **Framework:** Spring Boot 4
+* **Build Tool:** Gradle (Groovy DSL)
+* **Cloud Messaging:** Spring Cloud AWS SQS
+* **Documentation:** SpringDoc OpenAPI (Swagger)
+* **Internal Dependency:** `sqs-consumer-producer-lib` (Library A)
 
-2. **Consume:** Listens for responses resulting from the process.
-    * **Source:** `cola-aws-sqs-2`.
+## 🔄 Architecture & Messaging Flow
 
-## 🛠 Requirements
+This microservice functions as both a Producer and a Consumer using a Hybrid Encryption scheme (RSA + AES).
 
-* **OS:** macOS (Tested on Tahoe 26.1 on MacBook Pro 2021)
-* **Java:** JDK 25
-* **Infrastructure:** ElasticMQ (Docker)
-* **Internal Library:** `sqs-consumer-producer-lib` (A)
+### 1. Outbound (Producer)
 
-## 🔑 Security Configuration
+* **Trigger:** A `@Schedule` task (cron job) or a manual trigger via the Test `@RestController`.
+* **Destination:** `cola-aws-sqs-1` (Retrieved from Config Server).
+* **Process:**
+1. Generates the payload.
+2. Fetches **Airport-C's Public Key** via `ExternalConfigServer`.
+3. Encrypts the payload using **AES + Public Key (Hybrid)**.
+4. Publishes the `MessageDto` to the queue using `sqs-consumer-producer-lib`.
 
-The service requires the path to the **Public Key** to encrypt outgoing messages.
 
-Place your key in `src/main/resources/keys/public_key.pem` or define the path in environment variables:
+### 2. Inbound (Consumer)
 
-```bash
-export ENCRYPTION_PUBLIC_KEY_PATH=/path/to/public_key.pem
+* **Source:** `cola-aws-sqs-2` (Retrieved from Config Server).
+* **Process:**
+1. Listens for incoming messages.
+2. Uses **Airlines-B's Private Key** to decrypt the payload.
+3. Processes the response.
+
+
+## 📦 Data Model
+
+The messaging contract uses the following DTO:
+
+```java
+public record MessageDto(
+    Map<String, String> metadata, // Timestamp, TraceId, Sender, etc.
+    String encryptedPayload,      // Base64 encoded encrypted content
+    String keyId,                 // Optional: Identifier for the key used
+    String uniqueFlightId
+) {}
+
 ```
 
-## 📦 Installation for Microservices
+## ⚙️ Configuration & Security
 
-Add the dependency to your `build.gradle` file (assuming this library is published in your local repository).
+### Config Server Integration
 
-```groovy
-repositories {
-    mavenLocal() // Add to the microservice
-    mavenCentral()
-}
+The service uses `RestClient` within `ExternalConfigServer` to communicate with **Config-Server-D**. It fetches:
+
+* **SQS Queue Names:**
+* Outbound: `cola-aws-sqs-1`
+* Inbound: `cola-aws-sqs-2`
 
 
-dependencies {
-    implementation 'com.example.sqslib:sqs-consumer-producer-lib:0.0.1-SNAPSHOT'
-}
-```
+* **Security Keys:**
+* **Public Key (Airport-C):** Used for encrypting outgoing messages.
 
-## ⚙️ Configuration (application.yml)
 
-```yaml
-server:
-  port: 8081
-spring:
-  application:
-    name: sqs-producer-consumer-micro
-  main:
-    allow-bean-definition-overriding: true
-  cloud:
-    aws:
-      region:
-        static: us-east-1 # An arbitrary region
-      # Specific configuration for SQS pointing to ElasticMQ
-      sqs:
-        # Points to the ElasticMQ container port
-        endpoint: ${SPRING_CLOUD_AWS_SQS_ENDPOINT:http://localhost:9324}
-      credentials:
-        # Dummy credentials that satisfy the AWS SDK requirement
-        access-key: dummy
-        secret-key: dummy
-cola:
-  aws:
-    sqs:
-      producer: "cola-aws-sqs-1"
-      consumer: "cola-aws-sqs-2"
-```
+### Encryption Strategy
 
-## 🚀 Execution
+* **Sending:** Payload is encrypted using AES; the AES key is encrypted using Airport-C's RSA Public Key.
+* **Receiving:** The service holds its own **RSA Private Key** to decrypt incoming messages from `cola-aws-sqs-2`.
+
+## 🔌 API Documentation
+
+This service includes **SpringDoc OpenAPI**.
+Once the application is running, you can access the Swagger UI at:
+`http://localhost:8080/swagger-ui.html` (port may vary based on configuration).
+
+The API exposes endpoints primarily for:
+
+* Testing the producer logic manually (`@RestController`).
+* Health checks and metrics.
+
+## 🛠️ Build & Run
 
 ```bash
 make clean

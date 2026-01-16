@@ -25,3 +25,10 @@ springdoc:
     operations-sorter: method
 scheduler:
   cron-expression: "0 */2 * * * *" # Cada 2 minutos
+config:
+  server:
+    url: http://localhost:8888
+app:
+  client:
+    id: airlines-b
+    secret: secret-b-123

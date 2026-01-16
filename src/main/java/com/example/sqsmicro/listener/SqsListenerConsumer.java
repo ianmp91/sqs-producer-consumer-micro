@@ -1,6 +1,7 @@
 package com.example.sqsmicro.listener;
 
 import com.example.sqsmicro.records.MessageDto;
+import com.example.sqsmicro.services.ConfigurationLoaderService;
 import com.example.sqsmicro.util.EncryptDecryptMessageUtil;
 import io.awspring.cloud.sqs.annotation.SqsListener;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +19,10 @@ import org.springframework.stereotype.Component;
 public class SqsListenerConsumer {
 
     private final EncryptDecryptMessageUtil encryptDecryptMessageUtil;
+    private final ConfigurationLoaderService configurationLoaderService;
 
-    @SqsListener(queueNames = "#{@configurationLoaderService.getListeningQueue()}")
+
+    @SqsListener(queueNames = "#{@configurationLoaderService.getMyListeningQueue()}")
     public void listenResponse(@Payload MessageDto messageDto) throws Exception {
         log.debug("Message encryptedKey received from cola-aws-sqs-2: " + messageDto.encryptedKey());
         log.debug("Message metadata received from cola-aws-sqs-2: " + messageDto.metadata());

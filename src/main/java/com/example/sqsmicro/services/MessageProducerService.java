@@ -50,8 +50,9 @@ public class MessageProducerService {
     }
 
     public void sendFlightLegNotifRequest() throws Exception {
-        String targetQueue = configurationLoaderService.getQueueUrl();
-        String receiverPubKey = configurationLoaderService.getAirportPublicKey();
+        String target = "airport-c";
+        String targetQueue = configurationLoaderService.getPeerTargetQueue(target);
+        String receiverPubKey = configurationLoaderService.getPeerPublicKey(target);
         log.debug("Before preparing the SQS shipment. TargetQueue {} | ReceiverPubKey {}", targetQueue, receiverPubKey);
         IATAAIDXFlightLegNotifRQ request = flightNotificationBuilder.buildNotif("QR", "1234");
         String xmlPayload = xmlService.toXml(request);
@@ -77,8 +78,9 @@ public class MessageProducerService {
     }
 
     public void sendFlightLegRequest() throws Exception {
-        String targetQueue = configurationLoaderService.getQueueUrl();
-        String receiverPubKey = configurationLoaderService.getAirportPublicKey();
+        String target = "airport-c";
+        String targetQueue = configurationLoaderService.getPeerTargetQueue(target);
+        String receiverPubKey = configurationLoaderService.getPeerPublicKey(target);
         log.debug("Before preparing the SQS shipment. TargetQueue {} | ReceiverPubKey {}", targetQueue, receiverPubKey);
         IATAAIDXFlightLegRQ request = new IATAAIDXFlightLegRQ();
         request.setEchoToken(UUID.randomUUID().toString());
@@ -117,8 +119,9 @@ public class MessageProducerService {
     }
 
     public void sendMessage(String payload, Map<String, String> metadata) throws Exception {
-        String targetQueue = configurationLoaderService.getQueueUrl();
-        String receiverPubKey = configurationLoaderService.getAirportPublicKey();
+        String target = "airport-c";
+        String targetQueue = configurationLoaderService.getPeerTargetQueue(target);
+        String receiverPubKey = configurationLoaderService.getPeerPublicKey(target);
         log.debug("Before preparing the SQS shipment. TargetQueue {} | ReceiverPubKey {}", targetQueue, receiverPubKey);
         log.debug("Before preparing the SQS shipment. Payload to encrypt: {}", payload);
         encryptDecryptMessageUtil.loadPublicKey(receiverPubKey);

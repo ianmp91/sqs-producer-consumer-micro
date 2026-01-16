@@ -3,6 +3,7 @@ package com.example.sqsmicro.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -18,7 +19,7 @@ public class ConfigServerClientConfig {
 	@Value("${app.client.id:airlines-b}")
 	private String clientId;
 
-	@Value("${app.client.secret:secret-b-123}") // En prod, viene de ENV VARS
+	@Value("${app.client.secret:secret-b-123}")
 	private String clientSecret;
 
 	@Bean("configRestClient")
@@ -27,6 +28,14 @@ public class ConfigServerClientConfig {
 				.baseUrl(configServerUrl)
 				.defaultHeader("X-Client-Id", clientId)
 				.defaultHeader("X-Client-Secret", clientSecret)
+				.build();
+	}
+
+	@Bean("configRestClient2")
+	public RestClient configRestClient2() {
+		return RestClient.builder()
+				.baseUrl(configServerUrl)
+				.defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + clientSecret)
 				.build();
 	}
 }

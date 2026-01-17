@@ -19,8 +19,7 @@ import org.springframework.stereotype.Component;
 public class SqsListenerConsumer {
 
     private final EncryptDecryptMessageUtil encryptDecryptMessageUtil;
-    private final ConfigurationLoaderService configurationLoaderService;
-
+    private ConfigurationLoaderService configurationLoaderService;
 
     @SqsListener(queueNames = "#{@configurationLoaderService.getMyListeningQueue()}")
     public void listenResponse(@Payload MessageDto messageDto) throws Exception {

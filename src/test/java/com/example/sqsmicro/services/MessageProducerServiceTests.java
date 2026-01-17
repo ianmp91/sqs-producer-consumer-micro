@@ -49,7 +49,7 @@ public class MessageProducerServiceTests {
         Map<String,String> metadata = new HashMap<>();
         String publicKey = "key-public-123";
         metadata.put("publicKey", publicKey);
-        when(configurationLoaderService.getPeerTargetQueue("airport-c")).thenReturn("cola-aws-sqs-1");
+        when(configurationLoaderService.getPeerTargetName("airport-c")).thenReturn("cola-aws-sqs-1");
         // 1. Stub to encrypt the payload (your service now returns String)
         when(encryptDecryptMessageUtil.encryptHybrid(eq(rawPayload)))
                 .thenReturn(new EncryptDecryptMessageUtil.EncryptedMessageBundle(rawPayload, publicKey));

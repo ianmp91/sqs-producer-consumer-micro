@@ -101,4 +101,8 @@ public class ConfigurationLoaderService {
 	public String getPeerTargetQueue(String targetServiceName) {
 		return (String) getProperty(targetServiceName, "config.queues.inbound");
 	}
+
+	public String getPeerTargetName(String targetServiceName) {
+		return (String) getProperty(targetServiceName, "config.target-name");
+	}
 }

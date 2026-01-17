@@ -9,7 +9,6 @@ import org.springframework.web.client.RestClient;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * @author ian.paris
@@ -21,63 +20,62 @@ public class ParticipantConfigurationLoaderService {
 	private final RestClient restClient;
 
 	// Identidad propia
-	private static final String MY_SERVICE_ID = "LAX";
+	private static final String MY_SERVICE_ID = "QR";
 
-	// Cache segregada: Key = Nombre del Servicio (ej: 'airport-c'), Value = Sus propiedades
-	private final Map<String, Map<String, Object>> servicesConfigurationCache = new ConcurrentHashMap<>();
+	// 1. MEJORA: El caché ahora guarda directamente el objeto Participant.
+	// Key = IataCode (ej: 'QR'), Value = El Record Participant
+	private final Map<String, ParticipantsConfigResponse.Participant> servicesConfigurationCache = new ConcurrentHashMap<>();
 
-	// Set de servicios que queremos mantener actualizados automáticamente con el @Scheduled
+	// Set de servicios que queremos mantener actualizados automáticamente
 	private final Set<String> trackedServices = ConcurrentHashMap.newKeySet();
 
 	public ParticipantConfigurationLoaderService(@Qualifier("configRestClient2") RestClient restClient) {
 		this.restClient = restClient;
-		// Al iniciar, siempre queremos rastrear nuestra propia config
 		this.trackedServices.add(MY_SERVICE_ID);
 	}
 
 	/**
 	 * Carga/Refresca la configuración de un servicio específico.
-	 * Retorna el mapa de propiedades para uso inmediato si se desea.
 	 */
-	public Map<String, Object> loadConfigurationFor(String serviceName) {
+	public ParticipantsConfigResponse.Participant loadConfigurationFor(String serviceName) {
 		try {
-			// 1. Ajustar la llamada al endpoint (El path debe coincidir con tu API OData)
+			System.out.println("Config actualizada serivceName: " + serviceName);
 			var response = restClient.get()
-					.uri("/Participants?%24filter=IataCode%20eq%20'{serviceName}'", serviceName) // <-- Ajustar esto según tu ruta real en Azure/API
+					// Asegúrate de que '{serviceName}' se reemplace correctamente.
+					// RestClient usa uri variables, así que el placeholder debe ser {serviceName} en el string, no '{serviceName}'
+					.uri("/Participants?%24filter=IataCode%20eq%20'{serviceName}'", serviceName)
 					.retrieve()
 					.body(ParticipantsConfigResponse.class);
 
-			// 2. Validar la respuesta basada en la nueva estructura
-			if (response != null && response.participants() != null) {
+			System.out.println("Config actualizada response.participants().size: " + response.participants().size());
 
-				// 3. Transformar la Lista en un Mapa
-				// Clave: IataCode (ej: "QR"), Valor: El objeto Participant completo
-				Map<String, Object> newProperties = response.participants().stream()
-						.collect(Collectors.toMap(
-								ParticipantsConfigResponse.Participant::iataCode, // Key
-								participant -> participant                        // Value
-						));
+			if (response != null && response.participants() != null && !response.participants().isEmpty()) {
 
-				// Guardamos en caché.
-				// Ahora 'newProperties' es un mapa donde config.get("QR") te devuelve el objeto de Qatar Airways
-				servicesConfigurationCache.put(serviceName, newProperties);
+				// 2. MEJORA: Como filtras por IataCode, tomas el primero que coincida.
+				var participantConfig = response.participants().stream()
+								.filter(p -> p.iataCode().equals(serviceName))
+								.findFirst()
+								.orElse(null);
+				System.out.println("Config actualizada participantConfig: " + participantConfig);
 
-				if (!trackedServices.contains(serviceName)) {
+				servicesConfigurationCache.put(serviceName, participantConfig);
+
+				if (!trackedServices.contains(serviceName) && !serviceName.equals(MY_SERVICE_ID)) {
 					trackedServices.add(serviceName);
 				}
 
-				System.out.println("Participants config updated. Count: " + newProperties.size());
-				return newProperties;
+				System.out.println("Config actualizada para: " + serviceName);
+
+				return participantConfig;
 			}
 		} catch (Exception e) {
 			System.err.println("Error fetching participants config: " + e.getMessage());
 		}
-		return Map.of();
+		return null;
 	}
 
 	//@Scheduled(fixedRate = 600000) // 10 minutos
 	public void refreshAllTrackedConfigurations() {
-		// Refresca la config propia y la de cualquier peer que hayamos consultado antes
 		trackedServices.forEach(this::loadConfigurationFor);
 	}
 
@@ -85,45 +83,49 @@ public class ParticipantConfigurationLoaderService {
 	// MÉTODOS DE ACCESO A PROPIEDADES
 	// ==========================================
 
-	private Object getProperty(String serviceName, String key) {
-		// Si no tenemos la config de ese servicio, intentamos cargarla por primera vez (Lazy Loading)
+	/**
+	 * Obtiene el objeto Participant completo (Type-safe)
+	 */
+	public ParticipantsConfigResponse.Participant getParticipant(String serviceName) {
 		if (!servicesConfigurationCache.containsKey(serviceName)) {
 			loadConfigurationFor(serviceName);
 		}
-
-		var props = servicesConfigurationCache.get(serviceName);
-		return (props != null) ? props.get(key) : null;
+		return servicesConfigurationCache.get(serviceName);
 	}
-
-	// --- MI CONFIGURACIÓN (Airlines-B) ---
-
-	public String getMyPrivateKey() {
-		// Buscamos en 'airlines-b', la propiedad standard
-		return (String) getProperty(MY_SERVICE_ID, "config.security.private-key");
-	}
-
-	public String getMyListeningQueue() {
-		// Buscamos en 'airlines-b', mi inbound
-		return (String) getProperty(MY_SERVICE_ID, "config.queues.inbound");
-	}
-
-	// --- CONFIGURACIÓN DE TERCEROS (Peers) ---
 
 	/**
-	 * Obtiene la clave pública de un servicio destino (ej: airport-c)
-	 * Lee DIRECTAMENTE el archivo de config de 'airport-c'
+	 * 3. SOLUCIÓN FINAL: Acceso directo a la PublicKey usando el getter del Record
 	 */
 	public String getPeerPublicKey(String targetServiceName) {
-		// Nota: Buscamos "security.public-key" dentro de la config del target
-		return (String) getProperty(targetServiceName, "config.security.public-key");
+		var participant = getParticipant(targetServiceName);
+
+		if (participant != null) {
+			// Aquí es donde lees la key correctamente usando el método del record
+			return participant.publicKey();
+		}
+
+		return null; // O lanzar excepción si es crítico
 	}
 
-	/**
-	 * Obtiene la cola donde el servicio destino ESPERA recibir mensajes.
-	 * Lee DIRECTAMENTE el archivo de config de 'airport-c' propiedad 'inbound'
-	 */
+	public String getPeerTargetName(String targetServiceName) {
+		var participant = getParticipant(targetServiceName);
+
+		if (participant != null) {
+			// Aquí es donde lees la key correctamente usando el método del record
+			return participant.name();
+		}
+
+		return null;
+	}
+
 	public String getPeerTargetQueue(String targetServiceName) {
-		// Para enviarle a C, necesito saber cuál es SU inbound
-		return (String) getProperty(targetServiceName, "config.queues.inbound");
+		var participant = getParticipant(targetServiceName);
+
+		if (participant != null) {
+			// Aquí es donde lees la key correctamente usando el método del record
+			return participant.name();
+		}
+
+		return null;
 	}
 }
